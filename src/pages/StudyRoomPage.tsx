@@ -58,6 +58,8 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
     handRaised: false,
     screenSharing: false,
   });
+  const [videoLoading, setVideoLoading] = useState(false);
+  const [micLoading, setMicLoading] = useState(false);
 
   // WebRTC refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -200,12 +202,18 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
 
   // Toggle microphone
   const toggleMic = useCallback(async () => {
+    if (micLoading) return;
+    setMicLoading(true);
+
     try {
       if (!mediaState.micEnabled && !localStreamRef.current) {
         // Need to get user media first
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: mediaState.videoEnabled });
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: mediaState.videoEnabled
+        });
         localStreamRef.current = stream;
-        if (localVideoRef.current) {
+        if (localVideoRef.current && mediaState.videoEnabled) {
           localVideoRef.current.srcObject = stream;
         }
       }
@@ -234,29 +242,66 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
       });
     } catch (error) {
       console.error('Error toggling mic:', error);
+      alert('Could not access microphone. Please check your permissions.');
+    } finally {
+      setMicLoading(false);
     }
-  }, [mediaState, roomId, user?.id, profile?.display_name]);
+  }, [mediaState, roomId, user?.id, profile?.display_name, micLoading]);
 
   // Toggle video
   const toggleVideo = useCallback(async () => {
+    if (videoLoading) return;
+    setVideoLoading(true);
+
     try {
       if (!mediaState.videoEnabled) {
-        // Turn on video
+        // Turn on video - always get fresh stream
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: mediaState.micEnabled,
-          video: true
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            facingMode: 'user'
+          }
         });
-        localStreamRef.current = stream;
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+
+        // Stop any existing stream first
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach(track => track.stop());
         }
+
+        localStreamRef.current = stream;
+
+        // Wait for video element to be ready
+        await new Promise<void>(resolve => {
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = stream;
+            localVideoRef.current.onloadedmetadata = () => {
+              localVideoRef.current?.play().then(() => resolve()).catch(() => resolve());
+            };
+          } else {
+            resolve();
+          }
+        });
       } else {
-        // Turn off video
+        // Turn off video - stop tracks but keep stream reference cleared
         if (localStreamRef.current) {
           const videoTracks = localStreamRef.current.getVideoTracks();
+          videoTracks.forEach(track => track.stop());
+
+          // Remove video tracks from stream
           videoTracks.forEach(track => {
-            track.stop();
+            localStreamRef.current?.removeTrack(track);
           });
+
+          // If no audio either, clear the stream completely
+          if (localStreamRef.current.getAudioTracks().length === 0) {
+            localStreamRef.current = null;
+          }
+        }
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = null;
         }
       }
 
@@ -277,8 +322,12 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
       });
     } catch (error) {
       console.error('Error toggling video:', error);
+      alert('Could not access camera. Please check your permissions and make sure no other app is using it.');
+      setMediaState(prev => ({ ...prev, videoEnabled: false }));
+    } finally {
+      setVideoLoading(false);
     }
-  }, [mediaState, roomId, user?.id, profile?.display_name]);
+  }, [mediaState, roomId, user?.id, profile?.display_name, videoLoading]);
 
   // Toggle hand raise
   const toggleHand = useCallback(async () => {
@@ -649,26 +698,29 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
 
           {/* Voice/Video Controls */}
           <div className="p-4 border-t border-gray-100">
-            {/* Local Video Preview */}
-            {mediaState.videoEnabled && (
-              <div className="mb-3 relative">
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-32 rounded-xl object-cover bg-gray-900"
-                />
-                <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 bg-black/50 rounded-lg">
-                  {mediaState.micEnabled ? (
-                    <Mic className="w-3 h-3 text-white" />
-                  ) : (
-                    <MicOff className="w-3 h-3 text-red-400" />
-                  )}
-                  <span className="text-xs text-white">{profile?.display_name}</span>
-                </div>
+            {/* Local Video Preview - Always render but hide when off */}
+            <div className={`mb-3 relative ${mediaState.videoEnabled ? '' : 'hidden'}`}>
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-32 rounded-xl object-cover bg-gray-900"
+              />
+              <div className="absolute bottom-2 left-2 flex items-center gap-1 px-2 py-1 bg-black/50 rounded-lg">
+                {mediaState.micEnabled ? (
+                  <Mic className="w-3 h-3 text-white" />
+                ) : (
+                  <MicOff className="w-3 h-3 text-red-400" />
+                )}
+                <span className="text-xs text-white">{profile?.display_name}</span>
               </div>
-            )}
+              {videoLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-900/80 rounded-xl">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+            </div>
 
             {/* Screen Share Preview */}
             {mediaState.screenSharing && (
@@ -681,14 +733,17 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
             <div className="flex justify-center gap-2">
               <button
                 onClick={toggleMic}
-                className={`p-3 rounded-xl transition-colors ${
+                disabled={micLoading}
+                className={`p-3 rounded-xl transition-colors relative ${
                   mediaState.micEnabled
                     ? 'bg-success-500 text-white hover:bg-success-600'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                }`}
+                } ${micLoading ? 'opacity-70 cursor-wait' : ''}`}
                 title={mediaState.micEnabled ? 'Turn off microphone' : 'Turn on microphone'}
               >
-                {mediaState.micEnabled ? (
+                {micLoading ? (
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : mediaState.micEnabled ? (
                   <Mic className="w-5 h-5" />
                 ) : (
                   <MicOff className="w-5 h-5" />
@@ -697,14 +752,17 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
 
               <button
                 onClick={toggleVideo}
-                className={`p-3 rounded-xl transition-colors ${
+                disabled={videoLoading}
+                className={`p-3 rounded-xl transition-colors relative ${
                   mediaState.videoEnabled
                     ? 'bg-success-500 text-white hover:bg-success-600'
                     : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                }`}
+                } ${videoLoading ? 'opacity-70 cursor-wait' : ''}`}
                 title={mediaState.videoEnabled ? 'Turn off camera' : 'Turn on camera'}
               >
-                {mediaState.videoEnabled ? (
+                {videoLoading ? (
+                  <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : mediaState.videoEnabled ? (
                   <Video className="w-5 h-5" />
                 ) : (
                   <VideoOff className="w-5 h-5" />
