@@ -165,7 +165,12 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
   }
 
   function subscribeToUpdates() {
-    const channel = supabase.channel(`room:${roomId}`);
+    const channel = supabase.channel(`room:${roomId}`, {
+      config: {
+        broadcast: { self: true },
+        presence: { key: '' },
+      },
+    });
 
     channel
       .on('postgres_changes', {
@@ -173,16 +178,70 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
         schema: 'public',
         table: 'room_messages',
         filter: `room_id=eq.${roomId}`,
+      }, async (payload) => {
+        // Fetch the profile for the new message
+        const newMessage = payload.new as RoomMessage;
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', newMessage.user_id)
+          .single();
+
+        const messageWithProfile = {
+          ...newMessage,
+          profiles: profileData || null,
+        };
+
+        setMessages(prev => {
+          // Avoid duplicates
+          if (prev.some(m => m.id === newMessage.id)) return prev;
+          return [...prev, messageWithProfile];
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'room_messages',
+        filter: `room_id=eq.${roomId}`,
+      }, async (payload) => {
+        const updatedMessage = payload.new as RoomMessage;
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', updatedMessage.user_id)
+          .single();
+
+        setMessages(prev => prev.map(m =>
+          m.id === updatedMessage.id
+            ? { ...updatedMessage, profiles: profileData || null }
+            : m
+        ));
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'room_messages',
+        filter: `room_id=eq.${roomId}`,
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new as RoomMessage & { profiles: Profile | null }]);
+        const deletedId = payload.old?.id || payload.old?.id;
+        if (deletedId) {
+          setMessages(prev => prev.filter(m => m.id !== deletedId));
+        }
       })
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
         table: 'room_participants',
         filter: `room_id=eq.${roomId}`,
-      }, () => {
-        fetchRoomData();
+      }, async () => {
+        // Refetch participants
+        const { data: participantsData } = await supabase
+          .from('room_participants')
+          .select('*, profiles(*)')
+          .eq('room_id', roomId);
+        if (participantsData) {
+          setParticipants(participantsData);
+        }
       })
       .on('broadcast', { event: 'media_state' }, (payload) => {
         // Handle peer media state changes
@@ -195,12 +254,32 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
                 ...existing,
                 ...payload.payload,
               });
+            } else {
+              // New peer, add them
+              newStates.set(payload.payload.userId, {
+                userId: payload.payload.userId,
+                displayName: payload.payload.displayName || 'Unknown',
+                micEnabled: payload.payload.micEnabled || false,
+                videoEnabled: payload.payload.videoEnabled || false,
+                handRaised: payload.payload.handRaised || false,
+              });
             }
             return newStates;
           });
         }
       })
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Realtime connected to room:', roomId);
+        }
+        if (status === 'CHANNEL_ERROR') {
+          console.error('Realtime error, reconnecting...');
+          // Try to reconnect after a short delay
+          setTimeout(() => {
+            channel.subscribe();
+          }, 2000);
+        }
+      });
 
     return () => {
       supabase.removeChannel(channel);

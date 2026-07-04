@@ -1,0 +1,13 @@
+-- Enable realtime for key tables
+ALTER PUBLICATION supabase_realtime ADD TABLE room_messages;
+ALTER PUBLICATION supabase_realtime ADD TABLE room_participants;
+ALTER PUBLICATION supabase_realtime ADD TABLE study_rooms;
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+ALTER PUBLICATION supabase_realtime ADD TABLE learning_memory;
+ALTER PUBLICATION supabase_realtime ADD TABLE user_subject_progress;
+ALTER PUBLICATION supabase_realtime ADD TABLE activity_history;
+ALTER PUBLICATION supabase_realtime ADD TABLE xp_history;
+ALTER PUBLICATION supabase_realtime ADD TABLE user_lesson_progress;
+ALTER PUBLICATION supabase_realtime ADD TABLE study_plans;
+ALTER PUBLICATION supabase_realtime ADD TABLE user_achievements;
+ALTER PUBLICATION supabase_realtime ADD TABLE quiz_attempts;
