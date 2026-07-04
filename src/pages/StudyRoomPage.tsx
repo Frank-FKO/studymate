@@ -86,6 +86,27 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
     };
   }, [roomId]);
 
+  // Keep video stream alive - reattach if track ends unexpectedly
+  useEffect(() => {
+    if (!mediaState.videoEnabled || !localStreamRef.current) return;
+
+    const checkVideoInterval = setInterval(() => {
+      const videoTrack = localStreamRef.current?.getVideoTracks()[0];
+      if (videoTrack && !videoTrack.enabled) {
+        // Track was disabled, re-enable it
+        videoTrack.enabled = true;
+      }
+      if (videoTrack && videoTrack.readyState === 'ended') {
+        // Track ended unexpectedly, restart video
+        console.log('Video track ended, restarting...');
+        toggleVideo();
+        setTimeout(() => toggleVideo(), 100);
+      }
+    }, 2000);
+
+    return () => clearInterval(checkVideoInterval);
+  }, [mediaState.videoEnabled]);
+
   // Update participant media states when participants change
   useEffect(() => {
     const newPeerStates = new Map<string, PeerState>();
@@ -255,58 +276,71 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
 
     try {
       if (!mediaState.videoEnabled) {
-        // Turn on video - always get fresh stream
-        const stream = await navigator.mediaDevices.getUserMedia({
+        // Turn on video
+        const constraints = {
           audio: mediaState.micEnabled,
           video: {
             width: { ideal: 640 },
             height: { ideal: 480 },
-            facingMode: 'user'
+            facingMode: 'user',
+            frameRate: { ideal: 30, max: 60 }
           }
-        });
+        };
 
-        // Stop any existing stream first
+        // Get new stream
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Stop old video tracks if any exist
         if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach(track => track.stop());
+          localStreamRef.current.getVideoTracks().forEach(track => track.stop());
         }
 
+        // Store stream reference
         localStreamRef.current = stream;
 
-        // Wait for video element to be ready
-        await new Promise<void>(resolve => {
-          if (localVideoRef.current) {
-            localVideoRef.current.srcObject = stream;
-            localVideoRef.current.onloadedmetadata = () => {
-              localVideoRef.current?.play().then(() => resolve()).catch(() => resolve());
-            };
-          } else {
-            resolve();
-          }
-        });
-      } else {
-        // Turn off video - stop tracks but keep stream reference cleared
-        if (localStreamRef.current) {
-          const videoTracks = localStreamRef.current.getVideoTracks();
-          videoTracks.forEach(track => track.stop());
+        // Attach to video element and play
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
 
-          // Remove video tracks from stream
-          videoTracks.forEach(track => {
+          // Wait for video to be ready
+          localVideoRef.current.onloadedmetadata = () => {
+            localVideoRef.current?.play().catch(err => {
+              console.error('Error playing video:', err);
+            });
+          };
+
+          // Handle track ended event (e.g., camera disconnected)
+          stream.getVideoTracks()[0].onended = () => {
+            setMediaState(prev => ({ ...prev, videoEnabled: false }));
+            if (localVideoRef.current) {
+              localVideoRef.current.srcObject = null;
+            }
+          };
+        }
+
+        setMediaState(prev => ({ ...prev, videoEnabled: true }));
+      } else {
+        // Turn off video
+        if (localStreamRef.current) {
+          // Stop video tracks
+          localStreamRef.current.getVideoTracks().forEach(track => {
+            track.stop();
             localStreamRef.current?.removeTrack(track);
           });
 
-          // If no audio either, clear the stream completely
+          // Clear video element
+          if (localVideoRef.current) {
+            localVideoRef.current.srcObject = null;
+          }
+
+          // If no audio track, clear the stream
           if (localStreamRef.current.getAudioTracks().length === 0) {
             localStreamRef.current = null;
           }
         }
 
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = null;
-        }
+        setMediaState(prev => ({ ...prev, videoEnabled: false }));
       }
-
-      const newVideoState = !mediaState.videoEnabled;
-      setMediaState(prev => ({ ...prev, videoEnabled: newVideoState }));
 
       // Broadcast state change
       await supabase.channel(`room:${roomId}`).send({
@@ -316,13 +350,12 @@ export function StudyRoomPage({ roomId, onBack }: StudyRoomPageProps) {
           userId: user?.id,
           displayName: profile?.display_name,
           micEnabled: mediaState.micEnabled,
-          videoEnabled: newVideoState,
+          videoEnabled: !mediaState.videoEnabled,
           handRaised: mediaState.handRaised,
         },
       });
     } catch (error) {
       console.error('Error toggling video:', error);
-      alert('Could not access camera. Please check your permissions and make sure no other app is using it.');
       setMediaState(prev => ({ ...prev, videoEnabled: false }));
     } finally {
       setVideoLoading(false);

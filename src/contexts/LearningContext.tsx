@@ -1,5 +1,6 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import {
   Profile, Subject, UserSubjectProgress, Lesson, UserLessonProgress,
   Quiz, QuizAttempt, Flashcard, FlashcardReview, LearningMemory,
@@ -86,6 +87,7 @@ const LearningContext = createContext<LearningContextType | null>(null);
 
 export function LearningProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const channelsRef = useRef<RealtimeChannel[]>([]);
 
   // Core state
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -142,10 +144,146 @@ export function LearningProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (user) {
       initializeLearning();
+      setupRealtimeSubscriptions();
     } else {
+      cleanupRealtimeSubscriptions();
       resetState();
     }
+
+    return () => {
+      cleanupRealtimeSubscriptions();
+    };
   }, [user]);
+
+  // Setup realtime subscriptions
+  function setupRealtimeSubscriptions() {
+    if (!user) return;
+
+    // Clean up any existing channels
+    cleanupRealtimeSubscriptions();
+
+    // Profile changes
+    const profileChannel = supabase
+      .channel(`profile:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+        (payload) => {
+          setProfile(payload.new as Profile);
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(profileChannel);
+
+    // Learning memory changes
+    const memoryChannel = supabase
+      .channel(`memory:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'learning_memory', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setLearningMemory(payload.new as LearningMemory);
+          }
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(memoryChannel);
+
+    // Subject progress changes
+    const progressChannel = supabase
+      .channel(`progress:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_subject_progress', filter: `user_id=eq.${user.id}` },
+        async () => {
+          // Refetch progress
+          const { data } = await supabase
+            .from('user_subject_progress')
+            .select('*, subjects(*)')
+            .eq('user_id', user!.id);
+          if (data) setSubjectProgress(data);
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(progressChannel);
+
+    // Activity history changes
+    const activityChannel = supabase
+      .channel(`activities:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'activity_history', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setRecentActivities(prev => [payload.new as ActivityHistory, ...prev].slice(0, 10));
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(activityChannel);
+
+    // XP history changes
+    const xpChannel = supabase
+      .channel(`xp:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'xp_history', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          setXPHistory(prev => [payload.new as XPHistory, ...prev].slice(0, 20));
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(xpChannel);
+
+    // Lesson progress changes
+    const lessonProgressChannel = supabase
+      .channel(`lesson_progress:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_lesson_progress', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setLessonProgress(payload.new as UserLessonProgress);
+          }
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(lessonProgressChannel);
+
+    // Study plan changes
+    const studyPlanChannel = supabase
+      .channel(`study_plan:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'study_plans', filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+            setTodayPlan(payload.new as StudyPlan);
+          }
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(studyPlanChannel);
+
+    // Achievements changes
+    const achievementsChannel = supabase
+      .channel(`achievements:${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'user_achievements', filter: `user_id=eq.${user.id}` },
+        async () => {
+          await updateDashboardStats();
+        }
+      )
+      .subscribe();
+    channelsRef.current.push(achievementsChannel);
+  }
+
+  function cleanupRealtimeSubscriptions() {
+    channelsRef.current.forEach(channel => {
+      supabase.removeChannel(channel);
+    });
+    channelsRef.current = [];
+  }
 
   async function initializeLearning() {
     if (!user) return;
