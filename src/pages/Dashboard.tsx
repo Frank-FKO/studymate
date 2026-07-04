@@ -10,25 +10,25 @@ import {
   Sparkles, Play, Image
 } from 'lucide-react';
 
-// Subject images from Pexels
+// Subject images from Pexels - using higher quality and reliable URLs
 const subjectImages: Record<string, string> = {
-  mathematics: 'https://images.pexels.com/photos/6256062/pexels-photo-6256062.jpeg?auto=compress&cs=tinysrgb&w=400',
-  physics: 'https://images.pexels.com/photos/2598244/pexels-photo-2598244.jpeg?auto=compress&cs=tinysrgb&w=400',
-  chemistry: 'https://images.pexels.com/photos/2280571/pexels-photo-2280571.jpeg?auto=compress&cs=tinysrgb&w=400',
-  biology: 'https://images.pexels.com/photos/2087275/pexels-photo-2087275.jpeg?auto=compress&cs=tinysrgb&w=400',
-  history: 'https://images.pexels.com/photos/2156108/pexels-photo-2156108.jpeg?auto=compress&cs=tinysrgb&w=400',
-  literature: 'https://images.pexels.com/photos/2908984/pexels-photo-2908984.jpeg?auto=compress&cs=tinysrgb&w=400',
-  'computer-science': 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=400',
-  economics: 'https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg?auto=compress&cs=tinysrgb&w=400',
-  psychology: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=400',
-  geography: 'https://images.pexels.com/photos/1279813/pexels-photo-1279813.jpeg?auto=compress&cs=tinysrgb&w=400',
+  mathematics: 'https://images.pexels.com/photos/6256062/pexels-photo-6256062.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  physics: 'https://images.pexels.com/photos/2598244/pexels-photo-2598244.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  chemistry: 'https://images.pexels.com/photos/2280571/pexels-photo-2280571.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  biology: 'https://images.pexels.com/photos/2087275/pexels-photo-2087275.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  history: 'https://images.pexels.com/photos/2156108/pexels-photo-2156108.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  literature: 'https://images.pexels.com/photos/2908984/pexels-photo-2908984.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  'computer-science': 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  economics: 'https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  psychology: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  geography: 'https://images.pexels.com/photos/1279813/pexels-photo-1279813.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
 };
 
 // Empty state illustrations
 const emptyStateImages = {
-  rooms: 'https://images.pexels.com/photos/4226765/pexels-photo-4226765.jpeg?auto=compress&cs=tinysrgb&w=400',
-  achievements: 'https://images.pexels.com/photos/796602/pexels-photo-796602.jpeg?auto=compress&cs=tinysrgb&w=400',
-  learning: 'https://images.pexels.com/photos/4145190/pexels-photo-4145190.jpeg?auto=compress&cs=tinysrgb&w=400',
+  rooms: 'https://images.pexels.com/photos/4226765/pexels-photo-4226765.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  achievements: 'https://images.pexels.com/photos/796602/pexels-photo-796602.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
+  learning: 'https://images.pexels.com/photos/4145190/pexels-photo-4145190.jpeg?auto=compress&cs=tinysrgb&w=600&h=400&fit=crop',
 };
 
 interface RoomWithParticipants extends StudyRoom {
@@ -263,14 +263,18 @@ export function Dashboard({ onCreateRoom, onJoinRoom, onSelectRoom, onNavigateTo
   const HomeTab = () => (
     <div className="space-y-8 animate-fade-in">
       {/* Welcome Header */}
-      <div className="relative rounded-2xl overflow-hidden">
+      <div className="relative rounded-2xl overflow-hidden min-h-[200px] md:min-h-[280px]">
         <div className="absolute inset-0">
           <img
-            src="https://images.pexels.com/photos/5420197/pexels-photo-5420197.jpeg?auto=compress&cs=tinysrgb&w=1200"
+            src="https://images.pexels.com/photos/5420197/pexels-photo-5420197.jpeg?auto=compress&cs=tinysrgb&w=1400&h=500&fit=crop"
             alt="Learning"
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover object-center"
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+            }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-900/90 via-primary-800/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-primary-900/90 via-primary-800/80 to-primary-900/40" />
         </div>
         <div className="relative z-10 p-8 md:p-12">
           <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
@@ -362,15 +366,19 @@ export function Dashboard({ onCreateRoom, onJoinRoom, onSelectRoom, onNavigateTo
 
           {myRooms.length === 0 ? (
             <div className="card p-0 overflow-hidden">
-              <div className="relative h-48">
+              <div className="relative aspect-[16/9] bg-gray-100">
                 <img
                   src={emptyStateImages.rooms}
                   alt="Study together"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover object-center"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-white via-white/50 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-white via-white/60 to-transparent" />
               </div>
-              <div className="relative -mt-16 text-center p-6">
+              <div className="relative -mt-20 text-center p-6">
                 <h3 className="font-semibold text-gray-900 text-lg mb-2">Start Your Learning Journey</h3>
                 <p className="text-sm text-gray-500 mb-4">Create or join a study room to collaborate with others</p>
                 <button onClick={onCreateRoom} className="btn-primary">
@@ -388,23 +396,30 @@ export function Dashboard({ onCreateRoom, onJoinRoom, onSelectRoom, onNavigateTo
                   className="card p-0 cursor-pointer hover:border-primary-200 group overflow-hidden"
                 >
                   {/* Room image */}
-                  <div className="relative h-32 overflow-hidden">
+                  <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
                     <img
                       src={subjectImages[room.subject.toLowerCase()] || subjectImages.mathematics}
                       alt={room.subject}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = subjectImages.mathematics;
+                      }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-                    <span className={`absolute top-3 right-3 badge ${room.is_public ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-600'}`}>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                    <span className={`absolute top-3 right-3 badge ${room.is_public ? 'bg-white/90 text-primary-700' : 'bg-gray-900/70 text-white'}`}>
                       {room.is_public ? 'Public' : 'Private'}
                     </span>
+                    <div className="absolute bottom-3 left-3">
+                      <h3 className="font-semibold text-white text-lg drop-shadow-md">
+                        {room.name}
+                      </h3>
+                      <p className="text-white/80 text-sm">{room.subject}</p>
+                    </div>
                   </div>
-                  <div className="p-5">
-                    <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-primary-600 transition-colors">
-                      {room.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-3">{room.subject}</p>
-                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                  <div className="p-4">
+                    <div className="flex items-center justify-between text-xs text-gray-400">
                       <span className="flex items-center gap-1">
                         <Users className="w-3.5 h-3.5" />
                         {Array.isArray(room.room_participants) ? room.room_participants.length : room.room_participants}
@@ -579,19 +594,26 @@ export function Dashboard({ onCreateRoom, onJoinRoom, onSelectRoom, onNavigateTo
                 key={room.id}
                 className="card p-0 overflow-hidden hover:border-primary-200 group"
               >
-                <div className="relative h-32">
+                <div className="relative aspect-[16/9] overflow-hidden bg-gray-100">
                   <img
                     src={subjectImages[room.subject.toLowerCase()] || subjectImages.mathematics}
                     alt={room.subject}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = subjectImages.mathematics;
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
                   <span className="absolute top-3 right-3 badge badge-primary text-xs bg-white/90 backdrop-blur-sm">Public</span>
+                  <div className="absolute bottom-3 left-3">
+                    <h3 className="font-semibold text-white drop-shadow-md">{room.name}</h3>
+                    <p className="text-white/80 text-sm">{room.subject}</p>
+                  </div>
                 </div>
                 <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-1">{room.name}</h3>
-                  <p className="text-sm text-gray-500 mb-3">{room.subject}</p>
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-3">
                     <div className="w-6 h-6 bg-primary-100 rounded-full flex items-center justify-center text-xs text-primary-700 font-medium">
                       {(room.profiles as { display_name: string })?.display_name?.charAt(0) || 'H'}
                     </div>
@@ -631,11 +653,15 @@ export function Dashboard({ onCreateRoom, onJoinRoom, onSelectRoom, onNavigateTo
 
       {achievements.length === 0 ? (
         <div className="card p-0 overflow-hidden">
-          <div className="relative h-56">
+          <div className="relative aspect-[16/9] bg-gray-100">
             <img
               src={emptyStateImages.achievements}
               alt="Achievements"
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-center"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.style.display = 'none';
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-white via-white/60 to-transparent" />
           </div>

@@ -23,16 +23,16 @@ interface GeneratedLesson {
   isGenerated: boolean;
 }
 const subjectImages: Record<string, string> = {
-  mathematics: 'https://images.pexels.com/photos/6256062/pexels-photo-6256062.jpeg?auto=compress&cs=tinysrgb&w=600',
-  physics: 'https://images.pexels.com/photos/2598244/pexels-photo-2598244.jpeg?auto=compress&cs=tinysrgb&w=600',
-  chemistry: 'https://images.pexels.com/photos/2280571/pexels-photo-2280571.jpeg?auto=compress&cs=tinysrgb&w=600',
-  biology: 'https://images.pexels.com/photos/2087275/pexels-photo-2087275.jpeg?auto=compress&cs=tinysrgb&w=600',
-  history: 'https://images.pexels.com/photos/2156108/pexels-photo-2156108.jpeg?auto=compress&cs=tinysrgb&w=600',
-  literature: 'https://images.pexels.com/photos/2908984/pexels-photo-2908984.jpeg?auto=compress&cs=tinysrgb&w=600',
-  'computer-science': 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=600',
-  economics: 'https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg?auto=compress&cs=tinysrgb&w=600',
-  psychology: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=600',
-  geography: 'https://images.pexels.com/photos/1279813/pexels-photo-1279813.jpeg?auto=compress&cs=tinysrgb&w=600',
+  mathematics: 'https://images.pexels.com/photos/6256062/pexels-photo-6256062.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  physics: 'https://images.pexels.com/photos/2598244/pexels-photo-2598244.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  chemistry: 'https://.pexels.com/photos/2280571/pexels-photo-2280571.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  biology: 'https://images.pexels.com/photos/2087275/pexels-photo-2087275.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  history: 'https://images.pexels.com/photos/2156108/pexels-photo-2156108.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  literature: 'https://images.pexels.com/photos/2908984/pexels-photo-2908984.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  'computer-science': 'https://images.pexels.com/photos/1181671/pexels-photo-1181671.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  economics: 'https://images.pexels.com/photos/534216/pexels-photo-534216.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  psychology: 'https://images.pexels.com/photos/3184292/pexels-photo-3184292.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
+  geography: 'https://images.pexels.com/photos/1279813/pexels-photo-1279813.jpeg?auto=compress&cs=tinysrgb&w=800&h=500&fit=crop',
 };
 
 type View = 'subjects' | 'lessons' | 'lesson_detail';
@@ -425,11 +425,16 @@ export function LearnPage({ onBack }: LearnPageProps) {
                 className="bg-white rounded-2xl overflow-hidden text-left hover:shadow-xl transition-all group"
               >
                 {/* Subject Image */}
-                <div className="relative h-40 overflow-hidden">
+                <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
                   <img
                     src={subjectImages[subject.slug] || subjectImages.mathematics}
                     alt={subject.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-500"
+                    loading="lazy"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = subjectImages.mathematics;
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
                   {mastery >= 70 && (
@@ -439,8 +444,8 @@ export function LearnPage({ onBack }: LearnPageProps) {
                     </div>
                   )}
                   <div className="absolute bottom-3 left-3 right-3">
-                    <h3 className="text-lg font-bold text-white mb-0.5">{subject.name}</h3>
-                    <p className="text-white/70 text-sm line-clamp-1">{subject.description}</p>
+                    <h3 className="text-lg font-bold text-white mb-0.5 drop-shadow-md">{subject.name}</h3>
+                    <p className="text-white/80 text-sm line-clamp-1">{subject.description}</p>
                   </div>
                 </div>
 
